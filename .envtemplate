@@ -1,0 +1,4 @@
+FE_URL=frontendurl
+BE_URL=backend_url
+PAYSTACK_KEY =paystack_key
+DBURL=DATABASE_URL
