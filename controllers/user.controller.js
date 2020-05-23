@@ -5,6 +5,7 @@ const shortid = require("shortid");
 const Tokenize = require("../utilities/Tokenize");
 const Payment = require("../utilities/Paystack");
 const PaymentRecord = require("../models/PaymentRecord.model");
+const Mailer = require("../utilities/Emailing");
 exports.newAccount = async (req, res) => {
   let { id } = req.params;
   if (id === undefined) id = "";
@@ -27,7 +28,15 @@ exports.newAccount = async (req, res) => {
       (referalLink = uId),
       gender,
       (referal = id)
-    ).then((res_) => {
+    ).then(async (res_) => {
+      const message = `Hi ${firstName},
+      <p>You have successfully created an account on moneychain.org</p>
+      <p>Thank you for joining us!</p>
+      <p>Click the link below to verify & activate your account</p>
+      <a href="${process.env.FE_URL}/users/verifyaccount?q=${email}&a=${uId}">Verify Account</a>
+      <p>Thank you for joining.</p>
+      `;
+      await Mailer.sendMail(email, message, "Money Chain: New Verification");
       res.status(202).send("Account Created & Email Sent!");
     });
   } catch (error) {
@@ -42,7 +51,7 @@ exports.verifyAccount = async (req, res) => {
   try {
     let query = await UserModel.verifyAccount(q, a);
     let result = await query;
-    if (result) res.status(200).send("verified");
+    if (result) res.status(200).send("account verified!");
     else res.status(500).send("invalid record");
   } catch (error) {
     res.status(500).send("database error");
