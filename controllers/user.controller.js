@@ -4,7 +4,7 @@ const hash = require("../utilities/Password");
 const shortid = require("shortid");
 const Tokenize = require("../utilities/Tokenize");
 const Payment = require("../utilities/Paystack");
-
+const PaymentRecord = require("../models/PaymentRecord.model");
 exports.newAccount = async (req, res) => {
   let { id } = req.params;
   if (id === undefined) id = "";
@@ -56,21 +56,23 @@ exports.login = async (req, res) => {
 };
 
 exports.newDeposit = async (req, res) => {
-  const { id, email } = req.userDetails;
-  const { amount, option } = req.body;
+  const { email } = req.userDetails;
+
+  const { amount } = req.body;
   let query = await UserModel.LoginOrExist(email);
   let result = await query;
   if (!result) return res.send("User Data Invalid");
   const { firstName, lastName } = result;
-
+  const metadata = { custom_fields: [{ reference: req.reference }] };
   // begin payment processing... after saving to database
   let pay = new Payment();
   let query_ = await pay.makePayment(
     `${process.env.BE_URL}/users/verifyPayment`,
     amount,
-    shortid.generate(),
+    req.reference,
     `${firstName} ${lastName}`,
-    email
+    email,
+    metadata
   );
   let response = await query_;
   res.send(response);
@@ -78,10 +80,44 @@ exports.newDeposit = async (req, res) => {
 
 exports.verifyPayment = async (req, res) => {
   // verify payment after payment
-  const reference = req.query.reference;
-  if (!reference)
+  const reference_ = req.query.reference;
+  if (!reference_)
     res.status(500).send({ status: "failed", message: "Reference Missing" });
-  let query = await Payment.verifyPayment(reference);
+  let query = await Payment.verifyPayment(reference_);
   let response = await query;
-  console.log(response);
+
+  if (response[0] === "Verification successful") {
+    await PaymentRecord.verifyPayment(
+      response[1].metadata["custom_fields"][0]["reference"]
+    );
+    res.redirect(`${process.env.FE_URL}/dashboard/deposits`);
+  } else res.status(500).send("Error");
+};
+
+exports.userPaymentHistory = async (req, res) => {
+  const { id } = req.userDetails;
+  let request = await PaymentRecord.myPayment(id);
+  res.status(200).send(await request);
+};
+
+exports.userDetails = async (req, res) => {
+  const { email } = req.userDetails;
+  let query = await UserModel.LoginOrExist(email);
+  let response = await query;
+  res.status(200).send(response);
+};
+
+exports.updateUserBankDetails = async (req, res) => {
+  const { email } = req.userDetails;
+  const { bank, type, account } = req.body;
+  let query = await UserModel.updateBankDetails(email, bank, type, account);
+  let response = await query;
+  res.status(200).send("updated successfully");
+};
+
+exports.listBanks = async (req, res) => {
+  let banks = await Payment.listBanks();
+  if (banks.status) {
+    res.status(200).send(banks.data);
+  }
 };

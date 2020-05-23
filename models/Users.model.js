@@ -11,6 +11,10 @@ const userSchema = new DB.Schema({
   status: { type: Boolean, default: false },
   referalLink: String,
   referal: String,
+  Balance: { type: Number, default: 0 },
+  bank: String,
+  account: String,
+  type: String,
 });
 
 const User = DB.model("moneyusers", userSchema);
@@ -80,6 +84,11 @@ class UserClass {
     //   check that email and passExists
     const option = { email, referalLink, status: false };
     return await User.findOneAndUpdate(option, { status: true });
+  }
+
+  static async updateBankDetails(email, bank, type, account) {
+    const option = { email, status: true };
+    return await User.findOneAndUpdate(option, { bank, type, account });
   }
 }
 

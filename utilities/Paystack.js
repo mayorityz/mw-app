@@ -12,8 +12,9 @@ class Payments {
    * @params {string} reference - required* a unique reference id for this transaction
    * @param {string} name - customer name
    * @params {string} email - customer email
+   * @params {string} metadata - work with unique id we generated
    */
-  async makePayment(returnUrl, amount, reference, name, email) {
+  async makePayment(returnUrl, amount, reference, name, email, metadata) {
     try {
       return await paystack.transaction
         .initialize({
@@ -22,6 +23,7 @@ class Payments {
           name,
           email,
           callback_url: returnUrl,
+          metadata,
         })
         .then((response) => {
           const { status, data } = response;
@@ -43,18 +45,29 @@ class Payments {
    */
   static async verifyPayment(reference) {
     try {
+      // I need to refactor this code ...
       return await paystack.transaction
         .verify(reference)
         .then((res) => {
-          const { status, message } = res;
-          if (status) return message;
+          const { status, message, data } = res;
+          if (status) return [message, data];
           else return status;
         })
         .catch((err) => {
-          return "an error has occured!";
+          return ["an error has occured!"];
         });
     } catch (error) {
-      return "an error has occured!";
+      return ["an error has occured!"];
+    }
+  }
+
+  static async listBanks() {
+    try {
+      return await paystack.misc.list_banks().then((body, err) => {
+        return body;
+      });
+    } catch (err) {
+      return err;
     }
   }
 }
