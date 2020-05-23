@@ -11,11 +11,22 @@ app.use(cors());
 app.use(bodyParser.json());
 app.use(express.urlencoded({ extended: false }));
 
+app.use((req, res, next) => {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "*");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+  next();
+});
+
 // routes
 const usersRoute = require("./routes/users.route");
 
 // use the routes
 app.use(usersRoute);
+
+app.get("/", (req, res, next) => {
+  res.send("it is fine");
+});
 
 /**
  * 404 handler
