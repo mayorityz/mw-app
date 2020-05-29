@@ -7,12 +7,12 @@ const paystack = require("paystack")(process.env.PAYSTACK_KEY);
 class Payments {
   /**
    * Initiate transaction using paystack.
-   * @params {string} returnUrl - url to verify transaction after payment.
-   * @params {float} amount - amount for transaction
-   * @params {string} reference - required* a unique reference id for this transaction
+   * @param {string} returnUrl - url to verify transaction after payment.
+   * @param {float} amount - amount for transaction
+   * @param {string} reference - required* a unique reference id for this transaction
    * @param {string} name - customer name
-   * @params {string} email - customer email
-   * @params {string} metadata - work with unique id we generated
+   * @param {string} email - customer email
+   * @param {string} metadata - work with unique id we generated
    */
   async makePayment(returnUrl, amount, reference, name, email, metadata) {
     try {
@@ -27,9 +27,7 @@ class Payments {
         })
         .then((response) => {
           const { status, data } = response;
-          console.log(status);
           if (status === true) {
-            console.log(data.authorization_url);
             return { status: "success", msg: data.authorization_url };
           } else {
             return { status: "failed", msg: "Invalid Transaction ID" };

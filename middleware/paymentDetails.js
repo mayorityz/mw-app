@@ -1,6 +1,12 @@
 // store users info before payment processing ...
 const PaymentModel = require("../models/PaymentRecord.model");
 const shortid = require("shortid");
+const calc = require("../utilities/SortPayment");
+const moment = require("moment");
+
+const add14days = (days) => {
+  return moment().add(days, "days").format();
+};
 
 exports.makePayment = async (req, res, next) => {
   const paymentReference = shortid.generate();
@@ -13,7 +19,8 @@ exports.makePayment = async (req, res, next) => {
     id,
     amount,
     option,
-    paymentReference
+    paymentReference,
+    add14days(14)
   );
   let response = await request;
 

@@ -5,7 +5,18 @@ const shortid = require("shortid");
 const Tokenize = require("../utilities/Tokenize");
 const Payment = require("../utilities/Paystack");
 const PaymentRecord = require("../models/PaymentRecord.model");
+const WithdrawalModel = require("../models/Withdrawals.model");
 const Mailer = require("../utilities/Emailing");
+
+const moment = require("moment");
+
+const add14days = (days) => {
+  return moment().add(days, "days").format();
+};
+
+// utilties
+const calculateBalance = require("../utilities/SortPayment");
+
 exports.newAccount = async (req, res) => {
   let { id } = req.params;
   if (id === undefined) id = "";
@@ -129,4 +140,106 @@ exports.listBanks = async (req, res) => {
   if (banks.status) {
     res.status(200).send(banks.data);
   }
+};
+
+exports.withdrawal = async (req, res) => {
+  const { id, email } = req.userDetails;
+  const { data } = req.body;
+  if (data.status !== "Ongoing") return res.send("You have not reinvested!");
+
+  let chk = calculateBalance.sortOutPayment(data.withdrawalsLeft, data.amount); //returns the amount due at this stage.
+
+  const balance = chk - data.amount;
+
+  let reqq = await UserModel.LoginOrExist(email);
+
+  const newBalance = data.amount + reqq.Balance;
+  await UserModel.updateUserAccount(
+    { referalLink: id },
+    { Balance: newBalance }
+  );
+
+  await PaymentRecord.updateRecord(
+    { reference: data.reference, status: "Ongoing" },
+    {
+      withdrawalsLeft: data.withdrawalsLeft + 1,
+      wallet: data.wallet + balance,
+      status: "next stage",
+    }
+  );
+
+  let newWithDrawal = new WithdrawalModel();
+  await newWithDrawal.save(
+    data.reference,
+    data.amount,
+    { firstName: data.firstName, lastName: data.lastName, email },
+    id
+  );
+
+  // !todo : refresh the page after investment or split rows in a separate component
+  // save record to withdrawal history
+
+  res.send("All Done!!!");
+};
+
+/**
+ * initiates the reinvestment portal...
+ */
+exports.reinvest = async (req, res) => {
+  const { email } = req.userDetails;
+  const { data } = req.body;
+  const { withdrawalsLeft, amount, reference } = data;
+  const metadata = { custom_fields: [{ reference }] };
+  let nextPayment = calculateBalance.nextPayment(withdrawalsLeft, amount);
+
+  const PaymentInit = new Payment();
+  const pay = await PaymentInit.makePayment(
+    `${process.env.BE_URL}/users/verifyreinvestment`,
+    nextPayment,
+    shortid.generate(),
+    "name",
+    email,
+    metadata
+  );
+
+  res.status(202).send(pay);
+
+  /**
+   * know the next payment
+   *
+   * requires payment getway
+   * !todo --->=>
+   * changing the status to ongoing
+   * change to completed if three
+   * set wallet to zero in paymentHistory
+   * set next due by 14days
+   * how much to reinvest?
+   */
+};
+
+exports.verifyReinvestment = async (req, res) => {
+  const reference_ = req.query.reference;
+  if (!reference_)
+    res.status(500).send({ status: "failed", message: "Reference Missing" });
+
+  let query = await Payment.verifyPayment(reference_);
+  let response = await query;
+  const investMentRef = response[1].metadata["custom_fields"][0]["reference"];
+
+  const withdrawalsLeft = await PaymentRecord.findPayment({
+    reference: investMentRef,
+  });
+
+  if (response[0] === "Verification successful") {
+    if (withdrawalsLeft[0]["withdrawalsLeft"] === 3)
+      await PaymentRecord.verifyReinvestment(investMentRef, {
+        status: "Completed",
+      });
+    else
+      await PaymentRecord.verifyReinvestment(investMentRef, {
+        status: "Ongoing",
+        nextDue: add14days(14),
+      });
+    res.redirect(`${process.env.FE_URL}/dashboard/deposits`);
+  } else res.status(500).send("Error");
 };

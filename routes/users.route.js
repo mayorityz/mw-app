@@ -34,4 +34,11 @@ Router.post(
 );
 
 Router.get("/list/banks", authMiddleWare.userAuth, controller.listBanks);
+Router.post(
+  "/users/withdrawal",
+  authMiddleWare.userAuth,
+  controller.withdrawal
+);
+Router.post("/users/reinvest", authMiddleWare.userAuth, controller.reinvest);
+Router.get("/users/verifyreinvestment", controller.verifyReinvestment);
 module.exports = Router;

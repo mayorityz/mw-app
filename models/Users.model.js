@@ -90,6 +90,10 @@ class UserClass {
     const option = { email, status: true };
     return await User.findOneAndUpdate(option, { bank, type, account });
   }
+
+  static async updateUserAccount(conditions, query) {
+    return await User.findOneAndUpdate(conditions, query);
+  }
 }
 
 module.exports = UserClass;

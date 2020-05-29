@@ -20,9 +20,11 @@ app.use((req, res, next) => {
 
 // routes
 const usersRoute = require("./routes/users.route");
+const mailRoute = require("./routes/testemail.route");
 
 // use the routes
 app.use(usersRoute);
+app.use("/test", mailRoute);
 
 app.get("/", (req, res, next) => {
   res.send("it is fine");
