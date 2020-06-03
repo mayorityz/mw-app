@@ -145,29 +145,45 @@ exports.listBanks = async (req, res) => {
 exports.withdrawal = async (req, res) => {
   const { id, email } = req.userDetails;
   const { data } = req.body;
-  if (data.status !== "Ongoing") return res.send("You have not reinvested!");
+
+  if (data.withdrawalsLeft < 4) {
+    if (data.status !== "Ongoing") return res.send("You have not reinvested!");
+  }
 
   let chk = calculateBalance.sortOutPayment(data.withdrawalsLeft, data.amount); //returns the amount due at this stage.
 
   const balance = chk - data.amount;
 
-  let reqq = await UserModel.LoginOrExist(email);
+  let reqq = await UserModel.LoginOrExist(email); // returns the users details and current balance
 
   const newBalance = data.amount + reqq.Balance;
+  // update users overall balance
   await UserModel.updateUserAccount(
     { referalLink: id },
     { Balance: newBalance }
   );
 
-  await PaymentRecord.updateRecord(
-    { reference: data.reference, status: "Ongoing" },
-    {
-      withdrawalsLeft: data.withdrawalsLeft + 1,
-      wallet: data.wallet + balance,
-      status: "next stage",
-    }
-  );
+  //update user's investment details
+  if (data.withdrawalsLeft >= 3) {
+    await PaymentRecord.updateRecord(
+      { reference: data.reference },
+      {
+        wallet: data.wallet + balance,
+        status: "Completed",
+      }
+    );
+  } else {
+    await PaymentRecord.updateRecord(
+      { reference: data.reference, status: "Ongoing" },
+      {
+        withdrawalsLeft: data.withdrawalsLeft + 1,
+        wallet: data.wallet + balance,
+        status: "next stage",
+      }
+    );
+  }
 
+  // save a snippet of this withdrawl in d DB to keep record.
   let newWithDrawal = new WithdrawalModel();
   await newWithDrawal.save(
     data.reference,
@@ -188,10 +204,11 @@ exports.withdrawal = async (req, res) => {
 exports.reinvest = async (req, res) => {
   const { email } = req.userDetails;
   const { data } = req.body;
-  const { withdrawalsLeft, amount, reference } = data;
+  const { withdrawalsLeft, amount, reference, wallet } = data;
   const metadata = { custom_fields: [{ reference }] };
   let nextPayment = calculateBalance.nextPayment(withdrawalsLeft, amount);
 
+  // initiate paystack payment ...
   const PaymentInit = new Payment();
   const pay = await PaymentInit.makePayment(
     `${process.env.BE_URL}/users/verifyreinvestment`,
@@ -224,6 +241,7 @@ exports.verifyReinvestment = async (req, res) => {
 
   let query = await Payment.verifyPayment(reference_);
   let response = await query;
+  // get the exact ref stored within paystack
   const investMentRef = response[1].metadata["custom_fields"][0]["reference"];
 
   const withdrawalsLeft = await PaymentRecord.findPayment({
@@ -231,15 +249,24 @@ exports.verifyReinvestment = async (req, res) => {
   });
 
   if (response[0] === "Verification successful") {
-    if (withdrawalsLeft[0]["withdrawalsLeft"] === 3)
+    if (withdrawalsLeft[0]["withdrawalsLeft"] === 4)
       await PaymentRecord.verifyReinvestment(investMentRef, {
         status: "Completed",
       });
-    else
+    else {
+      // const newInvestmentBalance = "newAmount" + withdrawalsLeft[0]["wallet"];
       await PaymentRecord.verifyReinvestment(investMentRef, {
         status: "Ongoing",
         nextDue: add14days(14),
+        // wallet: newInvestmentBalance
       });
+    }
     res.redirect(`${process.env.FE_URL}/dashboard/deposits`);
   } else res.status(500).send("Error");
+};
+
+exports.mywithdrawals = async (req, res) => {
+  const { id } = req.userDetails;
+  let x = await WithdrawalModel.find({ userId: id });
+  res.status(200).send(x);
 };

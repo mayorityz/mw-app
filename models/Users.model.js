@@ -94,6 +94,10 @@ class UserClass {
   static async updateUserAccount(conditions, query) {
     return await User.findOneAndUpdate(conditions, query);
   }
+
+  static async users(query) {
+    return await User.find(query);
+  }
 }
 
 module.exports = UserClass;

@@ -32,7 +32,16 @@ class Withdrawal {
   delete() {}
   update() {}
   findById() {}
-  find() {}
+
+  /**
+   * find a withdrawal account
+   * @param {string} query - query for withdrawal
+   */
+
+  static async find(query) {
+    let request = await Withdrawals.find(query);
+    return request;
+  }
 }
 
 module.exports = Withdrawal;

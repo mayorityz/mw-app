@@ -25,6 +25,7 @@ const mailRoute = require("./routes/testemail.route");
 // use the routes
 app.use(usersRoute);
 app.use("/test", mailRoute);
+app.use("/admin", require("./routes/admin.route"));
 
 app.get("/", (req, res, next) => {
   res.send("it is fine");
